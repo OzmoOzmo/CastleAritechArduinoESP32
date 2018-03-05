@@ -1,0 +1,24 @@
+CastleAritechArduinoRKP for ESP32
+=================================
+
+*Note: this is a work in progress - for a complete version see the CastleAritechArduinoRKP project*
+
+An Aritech Alarm compatible Remote Keypad that makes Alarm functions
+accessible via any desktop or modern mobile phone browser.
+
+![animation demo](http://www.boards.ie/vbulletin/attachment.php?attachmentid=302051)
+
+Allows you to remote arm/disarm the panel as well as view logs etc.
+Also Emails you when an Alarm happens.
+
+Connection to the Panel requires either only a two or a four wire connection (your choice).
+
+
+To compile, place all files in a folder called CastleAritechArduinoESP32
+and open the "CastleAritechArduinoESP32.ino" in Arduino IDE.
+
+No libraries are required.
+
+The circuit required is in the HowTo Notes Folder.
+
+Dec 2017
