@@ -19,6 +19,10 @@ and open the "CastleAritechArduinoESP32.ino" in Arduino IDE.
 
 No libraries are required.
 
-The circuit required is in the HowTo Notes Folder.
+The circuit required is as follows.
+
+
+![schematic](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/Schematic.jpg)
+
 
 Dec 2017
