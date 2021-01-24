@@ -1,10 +1,4 @@
 /*
- * Log.h - Logs all to Hyterterminal or other via Arduino Pin 11
- *
- * 'Serial1'(Pin1&2) is used for Panel TX and the USB 'Serial' is really bad for debugging on Leonardo - so we use Pin 11.
- *
- * Note: Have QUIET Set during Normal use - some panels require full speed
- *
  * Created: 3/30/2014 11:35:06 PM
  *
  *   Aritech Alarm Panel Arduino Internet Enabled Keypad -  CS350 - CD34 - CD72 - CD91 and more
@@ -13,7 +7,7 @@
  *
  *   See Circuit Diagram for wiring instructions
  *
- *   Author: Ozmo
+ *   Author: Ambrose Clarke
  *
  *   See: http://www.boards.ie/vbulletin/showthread.php?p=88215184
  *
@@ -26,20 +20,25 @@
 
 #include <Arduino.h>
 
-#ifndef QUIET
+#ifdef DEBUG_LOG
 
-	#define nSerialBaudDbg 115200
-
-	#define Log(x) Serial.print(x)
-	#define Log2(x,y) Serial.print(x,y)
-	#define LogLn(x) Serial.println(x)
-	#define LogLn2(x,y) Serial.println(x,y)
-
+  #define nSerialBaudDbg 115200
+  
+  //this makes it easy to remove from release for max speed
+  #define Log Serial.print
+  #define LogLn Serial.println
+  #define Logf Serial.printf
+    
 #else
-	#define Log(x) {}
-	#define Log2(x,y) {}
-	#define LogLn(x) {}
-	#define LogLn2(x,y) {}
+	//#define Log(x) {}
+	//#define Log2(x,y) {}
+	//#define LogLn(x) {}
+	//#define LogLn2(x,y) {}
+  
+  //this makes it easy to remove from release for max speed
+  #define Log //
+  #define LogLn //
+  #define Logf //
   
 #endif
 
@@ -47,13 +46,21 @@
 void LogHex(byte rx);
 void LogHex(char* s);
 void LogHex(byte* s , int len);
-void LogHex(byte* s , int len, bool noNL);
 
 void Log_Init();
 
-void Log_ShowMem();
+//Built in LCD 
+#define DISPLAY_WIDTH 128
+void LCD_Init();
 
-void ToScreen(int line, String text);
-void LogScreen(String text);
+extern int gClients; 
+extern String gWifiStat;
+extern String gPanelStat;
+extern bool bDisplayToSend;
+extern bool bWebSocketToSend;
+
+void FlagDisplayUpdate();
+void FlagWebsocketUpdate();
+void DisplayUpdateDo();
 
 #endif

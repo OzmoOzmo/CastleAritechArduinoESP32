@@ -2,8 +2,6 @@
  * Config.h
  *
  *
- *	This is all you should need edit to get a working system
- *
  *   Aritech Alarm Panel Arduino Internet Enabled Keypad -  CS350 - CD34 - CD72 - CD91 and more
  *
  *   For Arduino (UNO or Leonardo) with added Ethernet Shield
@@ -21,72 +19,80 @@
 #ifndef CONFIG_H_  //Dont touch
 #define CONFIG_H_ 1  //Dont touch
 
-//Set to 1 for normal operation - comment out will debug print useful logs - Only Useful for Leonardo
-//#define QUIET 1  //NOTE - For Arduino UNO - THIS MUST BE DEFINED (as we need the only Serial port for panel comms)
-
 #define RKP_ID 1  //This is the Keypad id of the Arduinio - recommended 1 or 2 (0 is first keypad)
 
-//#define DUMP_RAW_LINE_DATA //This will dump all data from Arduino in hex to screen but no tx from arduino
+#define LED_Stat 12 // Pin 14 on some ESP32s Pin 12 on D1 R32 - this binks when packets are sent to panel
+#define ledFeedback 2 //Blink a Led on Pin 2 we can use to show ESP is running (Green Led)
 
-//#Hardware pins
+//Wifi Password (Required)
+#define WIFI_SSID "{WIFI NAME HERE}"
+#define WIFI_PASSWORD "{WIFI PASS HERE}"
+//Email Password (optional) are below in the email section
+
+
+//The Arduino IP address and Port (192.168.1.177)
+#define IP_ME "192.168.0.177"
+#define IP_GW "192.168.0.1"
+#define IP_SN "255.255.255.0"
+#define IP_DNS IP_GW //This will use your ISP dns - if that doesnt work - try "8.8.8.8" (googles dns)
+
+#define IP_P 80  //The IP Port for the http server
+
+//Important: To use Gmail for sending emails via port 465 (SSL), Googles less secure app option must be enabled for that sending account.
+//see for details: https://myaccount.google.com/lesssecureapps?pli=1
+#define SMTP_SERVER "smtp.gmail.com"        
+#define SMTP_PORT 465                   //always 465 for Secure Gmail
+#define EMAIL_SUBJECT "House Alarm"
+#define SMTP_USER "YOUREMAIL@gmail.com" //create a 
+#define SMTP_PASS "PASSWORD"
+#define EMAIL_ADDR "example@example.com"  //Email to send to
+
+
+
+
+/////////
+//These are advanced configuration...
+
+//Switches - Comment out to disable features.. 
+#define SENDEMAILS //Comment line out to disable sending emails
+//#define DEBUG_LOG //Comment out to disable all debug comments
+#define ENABLE_DISPLAY //Comment out to disable using LCD
+//#define HTTPS //uncomment to use HTTPS (much slower and more limited browser support)
+//#define DUMP_RAW_LINE_DATA //This will dump all data from Arduino in hex to debug log (DEBUG_LOG required)
+//#define DISPLAY_ALL_PACKETS //for debugging comms - noramlly comment this line out (DEBUG_LOG required)
+//#define SHOW_KEYPAD_SCREEN //Shows all screens in debug log - normally comment out (DEBUG_LOG required)
+//#define VM //define this to use Visual Micro as the compiler (a faster compiler - but not free)
+//#define REPORT_STACK_SPACE //Shows stats on the running threads 
+
+
+//#Serial Port pins - We leave Serial0 for programming and debug - this serial port connects to the Aritech Panel via the circuit
+//#define D1_R32  //uncomment this define to use the D1_R32 board
+#if D1_R32
+//These are the Pins to use for Serial Connection
+#define SERIAL1_RXPIN 17
+#define SERIAL1_TXPIN 16
+#else
+//Tested with "Wemos Lolin32" - These pins are more suited to the board layout
 #define SERIAL1_RXPIN 13
 #define SERIAL1_TXPIN 15
-#define LED_Stat 14  //displays packets sent using LED 14 (Red Led)
-#define ledFeedback 12 //Blink a Led on Pin 12 we can use to show ESP is running (Green Led)
+#endif
 
 #define ECHO_TEST_RTS -1 // (18) //unused but required to be defined can be: UART_PIN_NO_CHANGE
 #define ECHO_TEST_CTS -1 // (19) //unused but required to be defined can be: UART_PIN_NO_CHANGE
 
-
-//The Arduino IP address and Port (192.168.1.205:8383)
-#define IP_A 192
-#define IP_B 168
-#define IP_C 0
-#define IP_D 177 //205
-#define IP_P 80  //8383       //The IP Port for the server to listen on
-
-//#define SENDEMAILS 1      //Define this to enable sending emails - Comment line out to disable sending emails //TODO: reimplement
-
-//Wifi Password //TODO: Move to config
-#define WIFI_SSID "{WIFI NAME HERE}"
-#define WIFI_PASSWORD "{WIFI PASS HERE}"
-
-#define EMAIL_ADDR "example@example.com"  //Email to send to
-
-#define USE_SMTP_PASSWORD                 //comment this out if your SMTP server doesnt need to logon before sending emails (eg. your ISP smtp server wont need login)
-#define SMTP_USER "******@gmx.com"      //SMTP account name to send from (www.gmx.com is a good option)
-#define SMTP_PASS "******"            //SMTP account password to send from
-
-
-
 //Build Version (displayed on webpage)
-#define sVersion "V5.01"
+#define sVersion "Castle V6.00"
+
+//Maximum web browsers that can connect at a time
+#define MAX_CLIENTS 20
+
+//Symbols as displayed on the HTML page
+#define KEY_STAR "&#9650;"  //unicode arrow up "*"
+#define KEY_POUND "&#9660;" //unicode arrow down "#"
 
 
-//The Email server
-//This is the IP for "smtp.gmx.com" a free smtp server you can use
-// smtp.gmx.com = 212.227.17.174
-#define SMTP_IP_A 212
-#define SMTP_IP_B 227
-#define SMTP_IP_C 17
-#define SMTP_IP_D 174
-
-
-/*---To Send emails You can use gmx or you can use one of these IP address of the SMTP server that matches your Internet Provider
-smtp.mysmart.ie							Smart Telecom Outgoing SMTP Server
-smtp.irishbroadband.ie.					Irish Broadband Outgoing SMTP Server
-mail1.eircom.net OR mail2.eircom.net	Eircom Outgoing SMTP Server
-smtp.magnet.ie							Magnet Outgoing SMTP Server
-smtp.upcmail.ie							NTL and UPC Outgoing SMTP Server
-mail.icecomms.net						Ice Broadband Outgoing SMTP Server
-mail.vodafone.ie						Vodafone Outgoing SMTP Server
-smtp.o2.ie								O2 Outgoing SMTP Server
-smtp.clearwire.ie / mail.clearwire.ie	Clearwire Outgoing SMTP Server
-smtp.digiweb.ie							Digiweb Outgoing SMTP Server
-mail.imagine.ie OR mail.gaelic.ie		Imagine Broadband Outgoing SMTP Server
-mail.perlico.ie							Perlico Outgoing SMTP Server
-mail-relay.3ireland.ie					3 Outgoing SMTP Server: Mobile broadband with 3 mobile Ireland
-*/
+enum { WIFI_DOWN = 0, WIFI_PENDING = 1, WIFI_OK = 2 };
 
 
 #endif /* CONFIG_H_ */
+

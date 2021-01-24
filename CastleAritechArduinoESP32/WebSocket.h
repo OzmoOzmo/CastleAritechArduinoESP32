@@ -9,29 +9,20 @@
 
 class WebSocket
 {
-	public:
-		// Create a Websocket server
-		void static WebSocket_EtherInit();
-		void static EtherPoll();
-    void static EtherConnect();
-    
-		//Send something to connected browser
-		bool static WebSocket_send(char* data, byte length);
-
-    static bool bConnected;
-
-    static char htmlline[];   //Temp buffer for SHA, Base64 etc.
-    static char key[];
-    static int base64_encode(char *output, char *input, int inputLen);
-
-
 	private:
-		void static WebSocket_doHandshake();
-		byte static ReadNext();
-		bool static WebSocket_getFrame();
-		void static SendHTMLSite();
-    static inline void a3_to_a4(unsigned char * a4, unsigned char * a3);
+		void static WebSocket_WiFi_Init();
+		void static EtherPoll();
+		void static Verify_WiFi();
+		bool static WebSocket_send();//Send display to all connected browsers
 
+	public:
+		void static StartWebServerMonitor();
+		void static ServerInit(); //initialise what can be before we have wifi
+
+
+	    static int nConnectState; //0 = no wifi   1=waiting for wifi   2= wifi+sockets ok
+
+		static char dispBufferLast[]; //store of the display to send out
 };
 
 #endif /* WEBSOCKET_H_ */

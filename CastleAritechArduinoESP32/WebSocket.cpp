@@ -1,550 +1,469 @@
 /*
- * WebSocket.cpp - Websocket Implementation - works on most browsers and Mobile Phones (but notably Not on IE8)
+ * WebSocket.cpp - Websocket Implementation - works on most modern browsers and Mobile Phones
  *
  * Created: 3/30/2014 9:57:39 PM
  *
  *   Aritech Alarm Panel Arduino Internet Enabled Keypad -  CS350 - CD34 - CD72 - CD91 and more
  *
- *   For Arduino (UNO or Leonardo) with added Ethernet Shield
+ *   For ESP32
  *
  *   See Circuit Diagram for wiring instructions
  *
- *   Author: Ozmo
+ *   Author: Ambrose Clarke
  *
  *   See: http://www.boards.ie/vbulletin/showthread.php?p=88215184
  *
 */
 
+#define WEBSERVER
+#define WEBSOCKET
+
+
 #include "LOG.h"
-#include <WiFi.h> //found here: "\Documents\Arduino\hardware\espressif\esp32\libraries\WiFi.h"
-#include "websocket.h"
-#include "sha1.h"
-#include "RKP.h"  //for nKeyToSend
-
-/*
-#ifdef AtmelStudio
-  //Other modules
-  #include <SPI.cpp>
-  #include <Ethernet.cpp>
-  #include <EthernetClient.cpp>
-  #include <EthernetServer.cpp>
-  #include <utility\socket.cpp>
-  #include <utility\w5100.cpp>
+#ifdef VM
+  #include "libs\WiFi\WiFi.h"
+  #include "libs\Preferences\Preferences.h"
 #else
-  #include <SPI.h>
-  #include <Ethernet.h>
-  #include <EthernetClient.h>
-  #include <EthernetServer.h>
-  //#include <util.h>
+  #include <WiFi.h>
+  #include <Preferences.h>
 #endif
-*/
 
-//Wifi Password //TODO: Move to config
-const char* ssid     = WIFI_SSID;
-const char* password = WIFI_PASSWORD;
+#include "WebSocket.h"
+#include "RKP.h"  //for PushKey
+#include <sstream>
+
+int WebSocket::nConnectState = WIFI_DOWN; //0 = no wifi  1= wificonnecting 2=wifi+sockets ok
+char WebSocket::dispBufferLast[DISP_BUF_LEN + 1] = "RKP Unitialised";
+
+#ifdef WEBSERVER
+#ifdef VM
+  #include "libs\WiFi\WiFi.h"
+  #include "libs\ESPmDNS\ESPmDNS.h"
+  #include "libs\HttpsServer\HTTPRequest.hpp"
+  #include "libs\HttpsServer\HTTPResponse.hpp"
+  #include "libs\HttpsServer\WebsocketHandler.hpp"
+  #include "libs\HttpsServer\WebsocketNode.hpp"
+#else
+  #include <WiFi.h>
+  #include <ESPmDNS.h>
+  #include <HTTPRequest.hpp>
+  #include <HTTPResponse.hpp>
+  #include <WebsocketHandler.hpp>
+  #include <WebsocketNode.hpp>
+#endif
+
+#ifdef HTTPS
+  #ifdef VM
+    #include "libs\HttpsServer\HTTPSServer.hpp"
+    #include "libs\HttpsServer\SSLCert.hpp"
+  #else
+    #include <HTTPSServer.hpp>
+    #include <SSLCert.hpp>
+  #endif
+  
+  httpsserver::SSLCert* cert; //our server certificate
+  httpsserver::HTTPSServer* secureServer; //the server
+#else
+  #ifdef VM
+    #include "libs\HttpsServer\HTTPServer.hpp"
+  #else
+    #include <HTTPServer.hpp>
+  #endif
+  httpsserver::HTTPServer* secureServer; //the server
+#endif
+
+extern Preferences prefs;
 
 #define STR_HELPER(x) #x
 #define STR(x) STR_HELPER(x)
 
-WiFiServer ethServer(IP_P);
-WiFiClient ethClient;
+#ifdef HTTPS
+#define WS "wss"
+#else
+#define WS "ws"
+#endif
 
-//"*" will be replaced with button
-/*const char htmlSite[] PROGMEM=*/
-const char* htmlSite= //TODO: move to flash?
-//"<!DOCTYPE html PUBLIC '-//W3C//DTD XHTML 1.0 Transitional//EN'>"
+const String htmlSite =
 "<!DOCTYPE html>"
 "<html><head><title>Castle</title>"
-"<meta name='viewport' content='width=320, initial-scale=1.2, user-scalable=no'>" //"no" because pressing buttons causes screen to unzoom
+"<meta name='viewport' content='width=320, initial-scale=1.8, user-scalable=no'>" //"no" as screen unzooms when press button
 "<style>.long{height: 64px;} button{height: 35px;width: 35px;}</style>"
-"<script src='http://goo.gl/m3GB3M' type='text/javascript'></script>"
 "</head><body>"
-"<div style='border: 5px solid black; width: 180px;'>&nbsp;<div id=msg1 style='float:left'></div><div id=msg2 style='float:right'></div></div>"
-"<table>"
+"<div style='border: 5px solid black; width: 180px;'>&nbsp;<div id=msg1 style='float:left'>%</div><div id=msg2 style='float:right'>%</div></div>"
+"<table id='table'>"
 "<tr><td><button>1</button></td><td><button>2</button></td><td><button>3</button></td><td rowspan=2><button class=long>Y</button></td></tr>"
 "<tr><td><button>4</button></td><td><button>5</button></td><td><button>6</button></td></tr>"
 "<tr><td><button>7</button></td><td><button>8</button></td><td><button>9</button></td><td rowspan=2><button class=long>N</button></td></tr>"
-"<tr><td><button>*</button></td><td><button>0</button></td><td><button>#</button></td></tr>"
+"<tr><td><button value='*'>" KEY_STAR "</button></td><td><button>0</button></td><td><button value='#'>" KEY_POUND "</button></td></tr>"
 "</table>"
-"<script>var ws;$(document).ready(function(){"
+"<script defer>var ws;"
+"function ge(x){return document.getElementById(x);}\n"
+"function st(x,y){ge('msg1').innerText=x;ge('msg2').innerText=y?y:' ';}\n"
 "try{"
-  "ws = new WebSocket('ws://'+location.hostname+':" STR(IP_P) "/sock/');"
-  "ws.onmessage = function (evt) {var d=evt.data.split('|');$('#msg1').text(d[0]);$('#msg2').text(d[1]);};"
-  "ws.onerror = function (evt) {$('#msg').append('ERR:' + evt.data);};"
-  "ws.onclose = function (evt) {$('#msg').text('Closed');};"
-  "ws.onopen = function () { };"
-"} catch (ex) {alert(ex.message);}"
-"$(document).keypress(function (e) {ws.send(e.which);});"
-"$(':button').click(function (e) { ws.send(e.target.innerText.charCodeAt(0));});"
-"});</script></body></html>";
+"ws = new WebSocket('" WS "://'+location.hostname+'/sock');"
+"ws.onmessage = function(evt){var d=evt.data.split('|');st(d[0],d[1]);}\n"
+"ws.onerror = function(evt){st('ERR:' + evt.data,'');}\n"
+"ws.onclose = function(evt){st('Connection Closed','');}\n"
+"ws.onopen = function(){ws.send('r');}\n"
+//pc keyboard support
+"document.body.onkeydown = function(e){ws.send(String.fromCharCode(e.keyCode));}\n"
+//buttons on html
+"ge('table').onclick = function(e){ws.send(e.target.value || e.target.innerText);}\n"
+"} catch(ex) {alert(ex.message);}\n"
+"</script></body></html>";
 
-// Create a Websocket server
-void WebSocket::WebSocket_EtherInit()
-{
-    LogScreen("Connecting to WIFI");
-    //LogScreen(ssid);
+// As websockets are more complex, they need a custom class that is derived from WebsocketHandler
+class WebSockHandler : public httpsserver::WebsocketHandler {
+public:
+	static WebsocketHandler* create();
+	void onMessage(httpsserver::WebsocketInputStreambuf* input);
+	//]void initialize(httpsserver::ConnectionContext* con);
+	void onClose();
+};
+// Max clients to be connected to the chat
+WebSockHandler* activeClients[MAX_CLIENTS];
 
-    IPAddress ip(IP_A, IP_B, IP_C, IP_D);
-    IPAddress subnet(255, 255, 255, 0);
-    WiFi.config(ip,ip,subnet);
-    WiFi.begin(ssid, password);
 
-/* Interesting more direct way...
+httpsserver::WebsocketHandler* WebSockHandler::create() {
+	//Send welcome message handler->send(dispBufferLast, SEND_TYPE_TEXT);
+	WebSockHandler* handler = new WebSockHandler();
+	int i=0;
+	for (; i < MAX_CLIENTS; i++) {
+		if (activeClients[i] == nullptr) {
+			activeClients[i] = handler;
+			Logf("New client! :%d\n", i);
+			break;
+		}
+	}
+	if (i == MAX_CLIENTS)
+	{
+		Logf("Too many Clients!:%d\n", i);
+	}
 
-    nvs_flash_init();
-    tcpip_adapter_init();
-    ESP_ERROR_CHECK( esp_event_loop_init(event_handler, NULL) );
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    ESP_ERROR_CHECK( esp_wifi_init(&cfg) );
-    ESP_ERROR_CHECK( esp_wifi_set_storage(WIFI_STORAGE_RAM) );
-    ESP_ERROR_CHECK( esp_wifi_set_mode(WIFI_MODE_STA) );
-    wifi_config_t sta_config = {
-        .sta = {
-            .ssid = "access_point_name",
-            .password = "password",
-            .bssid_set = false
-        }
-    };
-    ESP_ERROR_CHECK( esp_wifi_set_config(WIFI_IF_STA, &sta_config) );
-    ESP_ERROR_CHECK( esp_wifi_start() );
-    ESP_ERROR_CHECK( esp_wifi_connect() );
-
-    gpio_set_direction(GPIO_NUM_4, GPIO_MODE_OUTPUT);
-    int level = 0;
-    while (true) {
-        gpio_set_level(GPIO_NUM_4, level);
-        level = !level;
-        vTaskDelay(300 / portTICK_PERIOD_MS);
-    }
- 
- */
-
-  //LogLn(Ethernet.localIP());
+	//quick count...
+	gClients = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		if (activeClients[i] != nullptr)
+			gClients++;
+	FlagDisplayUpdate();
+	return handler;
 }
 
-bool WebSocket::bConnected = false;
-
-//here every 500ms or so - check if connected
-void WebSocket::EtherConnect()
-{
-  if (!bConnected)
-  {
-    if (WiFi.status() != WL_CONNECTED)
-        return;
-
-    //LogScreen("WiFi connected.");
-    LogScreen("IP:" + WiFi.localIP().toString() + ":" + IP_P);
-    ethServer.begin();
-    bConnected = true;
-  }
+// When the websocket is closing, we remove the client from the array
+void WebSockHandler::onClose() {
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		if (activeClients[i] == this) {
+			activeClients[i] = nullptr;
+			Logf("Close client :%d",i);
+		}
+		else if (activeClients[i] != nullptr) //else used because one closing will be null 
+			gClients++;
+	}
+	//quick count...
+	gClients = 0;
+	for (int i = 0; i < MAX_CLIENTS; i++)
+		if (activeClients[i] != nullptr)
+			gClients++;
+	FlagDisplayUpdate();
 }
 
+// send s to all other clients
+void WebSockHandler::onMessage(httpsserver::WebsocketInputStreambuf* inbuf) {
+	// Get the input message
+	std::ostringstream ss;
+	ss << inbuf;
+	std::string payload = ss.str();
+	LogLn(payload.c_str());
+	RKPClass::PushKey(payload.c_str()[0]);
+}
+
+
+//initialise what we can before wifi starts
+void WebSocket::ServerInit()
+{
+	#ifdef HTTPS
+	const char* PKName = "PK";
+	const char* CertName = "CERT";
+	const char* dn = "CN=castle.local,O=castle,C=IE";
+	size_t pkLen = prefs.getBytesLength(PKName);
+	size_t certLen = prefs.getBytesLength(CertName);
+	if (pkLen && certLen)
+	{
+		LogLn("Found Cert In NVM");
+		//create in heap
+		uint8_t* pkBuffer = new uint8_t[pkLen];
+		prefs.getBytes(PKName, pkBuffer, pkLen);
+		uint8_t* certBuffer = new uint8_t[certLen];
+		prefs.getBytes(CertName, certBuffer, certLen);
+
+		cert = new httpsserver::SSLCert(certBuffer, certLen, pkBuffer, pkLen);
+		#if DUMP_KEYS
+		Serial.println("Retrieved Private Key " + String(cert->getPKLength()));
+		for (int i = 0; i < cert->getPKLength(); i++)
+			Serial.print(cert->getPKData()[i], HEX);
+		Serial.println();
+
+		Serial.println("Retrieved Certificate " + String(cert->getCertLength()));
+		for (int i = 0; i < cert->getCertLength(); i++)
+			Serial.print(cert->getCertData()[i], HEX);
+		Serial.println();
+		#endif
+		LogLn("Cert Loaded");
+	}
+	else
+	{
+		LogLn("Generating certificate");
+		cert = new httpsserver::SSLCert();
+		int result = httpsserver::createSelfSignedCert(*cert, httpsserver::KEYSIZE_1024, dn);
+		if (result != 0)
+			LogLn("Error :(");
+		else{
+			LogLn("Generated OK");
+			prefs.putBytes(PKName, (uint8_t*)cert->getPKData(), cert->getPKLength());
+			prefs.putBytes(CertName, (uint8_t*)cert->getCertData(), cert->getCertLength());
+			LogLn("Cert Stored");
+		}
+	}
+	
+	secureServer = new httpsserver::HTTPSServer(cert);
+	#else
+	secureServer = new httpsserver::HTTPServer();
+	#endif
+
+	httpsserver::ResourceNode* nodeRoot = new httpsserver::ResourceNode("/", "GET",
+		[](httpsserver::HTTPRequest* req, httpsserver::HTTPResponse* res)
+		{//root hander
+			String ip = req->getClientIP().toString();
+			std::string sReq = req->getRequestString();
+			Log("[" + ip + "] GET root");
+
+			//this is more memory efficient - writes, replacing % with the current rkp display
+			int i1 = htmlSite.indexOf('%');
+			int i2 = htmlSite.indexOf('%', i1 + 1);
+			const char* pStr = htmlSite.c_str();
+			res->write((byte*)pStr, i1); //first part
+			res->write((byte*)dispBufferLast,16); //first 15 characters - everything up to |
+			res->write((byte*)pStr+i1+1, i2-i1-1); //second part
+			res->print(dispBufferLast+17); //alarm etc
+			res->print(pStr + i2 + 1); //third part to end
+			res->finalize();
+		});
+	secureServer->registerNode(nodeRoot);
+	
+	httpsserver::ResourceNode* nodeFavicon = new httpsserver::ResourceNode("/favicon.ico", "GET",
+	[](httpsserver::HTTPRequest* req, httpsserver::HTTPResponse* res) {
+			// Set Content-Type
+			res->setHeader("Content-Type", "image/vnd.microsoft.icon");
+			// Binary data for the favicon
+			byte FAVICON_DATA[] = 
+			{
+				0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x08, 0x09, 0x02, 0x00, 0x01, 0x00, 0x01, 0x00, 0x78, 0x00,
+				0x00, 0x00, 0x16, 0x00, 0x00, 0x00, 0x28, 0x00, 0x00, 0x00, 0x08, 0x00, 0x00, 0x00, 0x12, 0x00,
+				0x00, 0x00, 0x01, 0x00, 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x24, 0x00, 0x00, 0x00, 0xc1, 0x1e,
+				0x00, 0x00, 0xc1, 0x1e, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x02, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0xff, 0xff, 0xff, 0x00, 0x9c, 0x00, 0x00, 0x00, 0x9c, 0x00, 0x00, 0x00, 0x88, 0x00,
+				0x00, 0x00, 0x80, 0x00, 0x00, 0x00, 0xa2, 0x00, 0x00, 0x00, 0x88, 0x00, 0x00, 0x00, 0xa2, 0x00,
+				0x00, 0x00, 0xeb, 0x00, 0x00, 0x00, 0xff, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00,
+				0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00
+			};
+		
+			#define FAVICON_LENGTH (sizeof(FAVICON_DATA)/sizeof(FAVICON_DATA[0]))
+			
+			res->write(FAVICON_DATA, FAVICON_LENGTH);
+		}
+	);
+	secureServer->registerNode(nodeFavicon);
+	
+	
+	// Add sock node like folder node
+	httpsserver::WebsocketNode* websockNode = new httpsserver::WebsocketNode("/sock", &WebSockHandler::create);
+	secureServer->registerNode(websockNode);
+}
+#endif
+
+//this is called constantly to service network requests
 void WebSocket::EtherPoll()
 {
-  if (!bConnected)
-    return;
+	if (nConnectState < WIFI_OK)
+		//No web server just yet
+		return;
 
-  // Should be called for each loop.
-  WiFiClient cli=ethServer.available();
+	//TODO: need test if this is enough to reset wifi connection if lost...
+	if (nConnectState != WIFI_PENDING && WiFi.status() != WL_CONNECTED) {
+		LogLn("EtherPoll-Wifi reconnect");
+		nConnectState = WIFI_DOWN; //switch to retry connecting to wifi again...
+		return;
+	}
 
-  /* this section is UNDER CONSTRUCTION!!!
-  if (cli)
-  {
-    if (ethClient == NULL) //]if (ethClient != cli)
-    {//New connection
-      //LogLn(F("new"));
-      //Secrisk
-      ethClient = cli;
-      WebSocket_doHandshake();
-    }
-    else
-    {//Existing connection
-      LogLn(F("existing"));
-      if (WebSocket_getFrame() == false)
-      {//Request to end comms (rarely happens)
-        //Got bad frame, disconnect
-        Log(F("Disconnect{"));
-        while(ethClient.available()>0)
-          ethClient.read();
-        ethClient.flush();
-        ethClient.stop();
-        ethClient = NULL;
-      }
-    }
-  }
-  */
-
-  
+#ifdef WEBSERVER
+	secureServer->loop();//service webserver
+#endif
 }
 
-void WebSocket::WebSocket_doHandshake()
+
+void WebSocket::StartWebServerMonitor()
 {
-  LogLn(F("Do Handshake"));
+	xTaskCreatePinnedToCore(
+		[](void* parameter) {
+			while (true)
+			{
+				//Serial.println("Test Wifi");
+				WebSocket::Verify_WiFi();
+				delay(500);
+				#ifdef REPORT_STACK_SPACE
+				Logf("threadWIFI %d\n", uxTaskGetStackHighWaterMark(NULL));
+				#endif
+			}
+		},
+		"threadWIFI",     // Task name
+		5000,            // Stack size (bytes)
+		NULL,             // Parameter
+		1,                // Task priority
+		NULL,             // Task handle
+		1                 //ARDUINO_RUNNING_CORE
+	);
 
-  bool hasKey = false;
-  bool bReqWebPage = false;
+	xTaskCreatePinnedToCore(
+		[](void* parameter)
+		{
+			while (true)
+			{
+				WebSocket::EtherPoll();
+				delay(75);
 
-  byte counter = 0;
+				#ifdef REPORT_STACK_SPACE
+				static int n = 0;
+				if (n++ % 10 == 0)
+					Logf("threadHTTPS %d\n", uxTaskGetStackHighWaterMark(NULL));
+				#endif
+			}
+		},
+		"threadHTTPS",  // Task name
+		10000,            // Stack size (bytes)
+		NULL,             // Parameter
+		1,                // Task priority
+		NULL,             // Task handle
+		1                 //ARDUINO_RUNNING_CORE
+	);
 
-  while(ethClient.available()>0) //TODO: move this to state machine
-  {//Read each line
-    //TODO: ignore any lines not starting with Sec-WebSocket-Key: if (counter.length==18){}
+	//Do all LCD updates in Wifi/WebServer/UI Thread
+	xTaskCreatePinnedToCore(
+		[](void* parameter)
+		{
+			while (true)
+			{
+				if (bDisplayToSend)
+				{
+					bDisplayToSend = false;
+					DisplayUpdateDo();
+				}
 
-    byte bite = ethClient.read();
-    //Log((char)bite); LogLn("");
-    htmlline[counter++] = bite;
-    if (counter > (127))
-    {
-      Log(F("Ignoring Oversized Line{\n  "));
-      LogHex((byte*)htmlline, counter-1);
-      //while(ethClient.available()>0) //TODO: issue with original code - shouldnt dump this
-      //  Log((char)ethClient.read());
-      //  //LogHex(ethClient.read());
-      LogLn(F("}"));
-      counter=0;
-      continue;
-    }
+				if (bWebSocketToSend)
+				{
+					bWebSocketToSend = false;
+					WebSocket::WebSocket_send();
+				}
 
-    if (bite == '\n')
-    { // Parse the line
-      htmlline[counter - 2] = 0; // Terminate string before CRLF
+				delay(10);
 
-      bool bFound = (strstr_P(htmlline, PSTR("Sec-WebSocket-Key:")) != NULL);
-      if (bFound)
-      {
-        Log("Key>");LogLn(htmlline);
-        hasKey = true;
-        strtok(htmlline, " ");
-        strcpy(key, strtok(NULL, " ")); //TODO: Not safe - need specify max 80 limit
-      }
-
-      if (strstr_P(htmlline, PSTR("GET / HTTP")) != NULL)
-      {
-        LogLn(F("Page Req"));
-        bReqWebPage=true;
-      }
-
-      counter = 0; // Start saving new header string
-    }
-  }
-
-  //Log("Got header: ");LogHex((byte*)htmlline,counter);
-
-  if (hasKey)
-  {
-    LogLn(F("WS Req"));
-    strcat(key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"); //TODO: simplify /*strcat_P(key, PSTR("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")); // Magic Number GUID*/
-    
-    Sha1.init();
-    Sha1.print(key);
-    uint8_t* hash = Sha1.result();
-    base64_encode(htmlline, (char*)hash, 20); //reuse htmlline buffer
-    ethClient.print(F("HTTP/1.1 101 Switching Protocols\r\n"));
-    ethClient.print(F("Upgrade: websocket\r\n"));
-    ethClient.print(F("Connection: Upgrade\r\n"));
-    ethClient.print(F("Sec-WebSocket-Accept: "));
-    ethClient.print(htmlline);  //eg. VoNhf1LMVVTziHWxjiajVem5DB4=
-    ethClient.print(F("\r\n\r\n"));
-
-    LogLn(F("Connected"));
-
-    //Send any display we might have
-    RKPClass::SendDisplayToWebClient(); //RKPClass::bScreenHasUpdated = true; //RKPClass::SendDisplayToBrowser();
-  }
-  else if (bReqWebPage)
-  {// Nope, Not a websocket request - send the main webpage
-    //LogLn(F("WebPageReq"));
-    SendHTMLSite();
-  }
-  else
-  {
-    ethClient.println(F("HTTP/1.0 404 File Not Found"));  //
-    ethClient.println(F("Content-Type: text/html"));
-    ethClient.println(F("Connnection: close"));
-    ethClient.println();
-    //delay(1);
-    ethClient.stop();
-  }
-  return;
+				#ifdef REPORT_STACK_SPACE
+				static int n=0;
+				if (n++ % 10 == 0)
+					Logf("threadLCD %d\n", uxTaskGetStackHighWaterMark(NULL));
+				#endif
+			}
+		},
+		"threadLCD",  // Task name
+			3000,            // Stack size (bytes)
+			NULL,             // Parameter
+			1,                // Task priority
+			NULL,             // Task handle
+			1                 //ARDUINO_RUNNING_CORE
+		);
 }
-
-void WebSocket::SendHTMLSite()
-{
-  //Log(F("ConnectWWW{"));
-  //  while(ethClient.available()>0)
-  //  Log((char)cli.read());
-  //LogLn(F("}"));
-  ethClient.println(F("HTTP/1.0 200 OK"));  //
-  ethClient.println(F("Content-Type: text/html"));
-  ethClient.println(F("Connnection: close"));
-  ethClient.println();
-  /*const char* p = &htmlSite[0];
-  for(int n=0;n<2000;n++)
-  {
-    char c = pgm_read_byte(p++);
-    if (c==0) break;
-    //Can use tokens to compress the HTML a bit
-    //if (c=='*')
-    //  ethClient.print(F("button"));
-    //else
-    ethClient.print(c);
-  }*/
-  ethClient.print(htmlSite);
-
-  // close the connection so browser gets data
-  ethClient.flush();
-  //delay(1);
-  ethClient.stop();
-  LogLn("Sent Page");
-}
-
-/*//see if any web clients are calling to connect
-//void WebSocket::EtherPoll()
-//{
-//  if (!bConnected)
-//        return;
-// 
-//  WiFiClient client = server.available();   // listen for incoming clients
-//
-//  if (client) {                             // if you get a client,
-//    Serial.println("New Client.");           // print a message out the serial port
-//    String currentLine = "";                // make a String to hold incoming data from the client
-    while (client.connected()) {            // loop while the client's connected
-      if (client.available()) {             // if there's bytes to read from the client,
-        char c = client.read();             // read a byte, then
-        //Serial.write(c);                    // print it out the serial monitor
-        if (c == '\n') {                    // if the byte is a newline character
-          // if the current line is blank, you got two newline characters in a row.
-          // that's the end of the client HTTP request, so send a response:
-          if (currentLine.length() == 0) {
-            // HTTP headers always start with a response code (e.g. HTTP/1.1 200 OK)
-            // and a content-type so the client knows what's coming, then a blank line:
-            client.println("HTTP/1.1 200 OK");
-            client.println("Content-type:text/html");
-            client.println();
-
-            // the content of the HTTP response follows the header:
-            client.print("Click <a href=\"/H\">here</a> to turn the LED on pin 5 on.<br>");
-            client.print("Click <a href=\"/L\">here</a> to turn the LED on pin 5 off.<br>");
-
-            // The HTTP response ends with another blank line:
-            client.println();
-            // break out of the while loop:
-            break;
-          } else {    // if you got a newline, then clear currentLine:
-            currentLine = "";
-          }
-        } else if (c != '\r') {  // if you got anything else but a carriage return character,
-          currentLine += c;      // add it to the end of the currentLine
-        }
-
-        // Check to see if the client request was "GET /H" or "GET /L":
-        if (currentLine.endsWith("GET /H")) {
-          digitalWrite(5, HIGH);               // GET /H turns the LED on
-        }
-        if (currentLine.endsWith("GET /L")) {
-          digitalWrite(5, LOW);                // GET /L turns the LED off
-        }
-      }
-    }
-    // close the connection:
-    client.stop();
-    Serial.println("Client Disconnected.");
-  }
-}*/
-
 
 //Send something to connected browser
-bool WebSocket::WebSocket_send(char* data, byte length)
+bool WebSocket::WebSocket_send()
 {
-  LogLn("Sending Screen");LogHex((byte*)data,length);
-  
-  if (!ethClient.connected())
-  {
-    LogLn(F("No Client."));
-    return false;
-  }
-  //int length = strlen(data);
-  ethClient.write(0x81);// string type
+	const char* data = WebSocket::dispBufferLast;
 
-  if (length > 125) {
-    ethClient.write(126);
-    ethClient.write((uint8_t) (length >> 8));
-    ethClient.write((uint8_t) (length && 0xFF));
-  }
-  else
-    ethClient.write((uint8_t) length);
-
-  for (int i=0; i<length; ++i)
-    ethClient.write(data[i]);
-
-  LogLn(F("Sent OK."));
-    
-  return true;
+	// Send it back to every client
+	for (int i = 0; i < MAX_CLIENTS; i++) {
+		WebSockHandler* pClient = activeClients[i];
+		if (pClient != nullptr) {
+			pClient->send(data, httpsserver::WebsocketHandler::SEND_TYPE_TEXT);
+			//odd without next line - the compiler sends to only 1 handler... compiler bug?
+			Logf("Screen Sent to:%d\n",i);
+		}
+	}
+	//Very useful: LogHex((byte*)data,length);
+	return true;
 }
 
-
-/*
-
-//--Sockets
-//use this as password - pick random port - set code tamper on alarm also.
-EthernetServer ethServer = EthernetServer(IP_P);
-
-
-// Create a Websocket server
-void WebSocket::WebSocket_EtherInit()
+// Start process to join a Wifi connection
+void WebSocket::WebSocket_WiFi_Init()
 {
-	IPAddress ip( IP_A, IP_B, IP_C, IP_D);	    //Give the device a unique IP
-	IPAddress gateway( IP_A, IP_B, IP_C, 1 );   //Gateway (youre Router)
-	IPAddress subnet( 255, 255, 255, 0 );	    //typically dont need change
+	//Wifi Password is defined in config.h
+	//gWifiStat = "Connecting: " WIFI_SSID; DisplayUpdate(); //ToScreen(0, "Connecting: " WIFI_SSID);
 
-	// this sequence must be unique on your lan
-	byte mac[] = { 0x90, 0xA2, 0xDA, 0x00, 0x59, 0x67 };	//typically dont need change
-
-	//Start Ethernet
-	Ethernet.begin(mac, ip);
-
-	ethServer.begin();
-        delay(1000); // Settle time
-	Log(F("server is at ")); LogLn(Ethernet.localIP());
-}
-*/
-
-//used by base64
-inline void WebSocket::a3_to_a4(unsigned char * a4, unsigned char * a3) {
-	a4[0] = (a3[0] & 0xfc) >> 2;
-	a4[1] = ((a3[0] & 0x03) << 4) + ((a3[1] & 0xf0) >> 4);
-	a4[2] = ((a3[1] & 0x0f) << 2) + ((a3[2] & 0xc0) >> 6);
-	a4[3] = (a3[2] & 0x3f);
+	IPAddress ip_me; ip_me.fromString(IP_ME);
+	IPAddress ip_gw; ip_gw.fromString(IP_GW);
+	IPAddress ip_sn; ip_sn.fromString(IP_SN);
+	IPAddress ip_dns; ip_dns.fromString(IP_DNS);
+	
+	WiFi.config(ip_me, ip_gw, ip_sn, ip_dns, ip_dns);
+	WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+	nConnectState = WIFI_PENDING;
+	LogLn("End EtherInit");
 }
 
-int WebSocket::base64_encode(char *output, char *input, int inputLen)
+//here every 500ms or so - check if connected
+void WebSocket::Verify_WiFi()
 {
-	int i = 0, j = 0;
-	int encLen = 0;
-	unsigned char a3[3];
-	unsigned char a4[4];
+	static int nErrorCount = 0;
+	if (nConnectState == WIFI_DOWN)
+	{
+		LogLn(F("Start Wifi"));
+		gWifiStat = "Cnt: " WIFI_SSID; FlagDisplayUpdate(); //ToScreen(0, "Connecting: " WIFI_SSID);
+		WebSocket::WebSocket_WiFi_Init();
+		nConnectState = WIFI_PENDING;
+		nErrorCount = 0;
+		return;
+	}
 
-        static char b64_alphabet[] = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
-		"abcdefghijklmnopqrstuvwxyz"
-		"0123456789+/";
-
-	while(inputLen--) {
-		a3[i++] = *(input++);
-		if(i == 3) {
-			a3_to_a4(a4, a3);
-
-			for(i = 0; i < 4; i++) {
-				output[encLen++] = b64_alphabet[a4[i]];
+	if (nConnectState == WIFI_PENDING)
+		if (WiFi.status() != WL_CONNECTED)
+		{
+			if (nErrorCount++ < 10){
+				Log(F("Connecting.."));
 			}
-
-			i = 0;
+			else
+				nConnectState = WIFI_DOWN;
+			return;
 		}
-	}
-
-	if(i) {
-		for(j = i; j < 3; j++) {
-			a3[j] = '\0';
-		}
-
-		a3_to_a4(a4, a3);
-
-		for(j = 0; j < i + 1; j++) {
-			output[encLen++] = b64_alphabet[a4[j]];
-		}
-
-		while((i++ < 3)) {
-			output[encLen++] = '=';
-		}
-	}
-	output[encLen] = '\0';
-	return encLen;
-}
-
-
-char WebSocket::htmlline[128];	//There are 3 buffers needed - htmlline, key and sha - sha and htmlline share the same temp buffer
-char WebSocket::key[80];        //this cannot use htmlline also
-
-
-struct Frame {
-	bool isMasked;
-	bool isFinal;
-	byte opcode;
-	byte mask[4];
-	byte length;
-	char data[64+1];
-} frame;
-
-byte WebSocket::ReadNext()
-{
-	byte bite = ethClient.read();
-	//LogHex(bite);
-	return bite;
-}
-
-bool WebSocket::WebSocket_getFrame()
-{
-	// Get opcode
-	byte bite = ReadNext(); if (bite==0xFF) return false;
-
-	frame.opcode = bite & 0xf; // Opcode
-	frame.isFinal = bite & 0x80; // Final frame?
-	// Determine length (only accept <= 64 for now)
-	bite = ReadNext(); if (bite==0xFF) return false;
-
-	frame.length = bite & 0x7f; // Length of payload
-	if (frame.length >= 64)
-	{//Unlikely to happen
-		Log(F("Frame Too Big")); LogLn(bite);
-		return false;
-	}
-	// Client should always send mask, but check just to be sure
-	frame.isMasked = bite & 0x80;
-	if (frame.isMasked) {
-		frame.mask[0] = ReadNext();
-		frame.mask[1] = ReadNext();
-		frame.mask[2] = ReadNext();
-		frame.mask[3] = ReadNext();
-	}
-
-	// Get message bytes and unmask them if necessary
-	int i = 0;
-	for (; i < frame.length; i++)
-	{
-		bite = ReadNext();
-		if (frame.isMasked)
-			frame.data[i] = bite ^ frame.mask[i % 4];
 		else
-			frame.data[i] = bite;
-	}
-	frame.data[i]=0;
+		{//just got good wifi - set up socket server & web server
+			LogLn("WiFi connected.");
+			//LogScreen("IP:" + WiFi.localIP().toString() + ":" + IP_P);
+			//ToScreen(0, "IP:" + WiFi.localIP().toString() + ":" + IP_P);
+			gWifiStat = "IP:" + WiFi.localIP().toString() + ":" + IP_P; FlagDisplayUpdate();
+#ifdef WEBSERVER
+			secureServer->start();
+			if (secureServer->isRunning())
+				Serial.println("Server ready.");
+			//start_mdns_service();
+#endif
 
-	// Frame complete!
-	if (!frame.isFinal)
-	{	// We don't handle fragments! Close and disconnect.
-		LogLn(F("Unsurp"));
-		return false;
-	}
+			nConnectState = WIFI_OK;
+			return;
+		}
 
-	if (frame.opcode== 0x01)
-	{// Txt frame
-		Log(F("Data: ")); //Got Data
-		LogLn(frame.data);
-		RKPClass::PushKey(atoi(frame.data));
-		return true;
-	}
-
-	if (frame.opcode== 0x08)
+	if (WiFi.status() != WL_CONNECTED)
 	{
-		// Close frame. Answer with close and terminate tcp connection
-		LogLn(F("Close")); //Close frame
-		ethClient.write((uint8_t) 0x08);
-		return false;
+		//failed to connect - try again
+		LogLn(F("Retry connect Wifi"));
+		nConnectState = WIFI_DOWN;
+		return;
 	}
-
-	// Unexpected. Ignore?
-	LogLn(F("Ex.")); //Unhandled frame ignored
-	return false;
 }
-
-

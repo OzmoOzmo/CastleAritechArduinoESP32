@@ -8,37 +8,32 @@
 #ifndef __SMTP_H__
 #define __SMTP_H__
 
-#ifdef SENDEMAILS
-#include <EthernetClient.h>
-#else
+#include "Config.h"
 #include "Arduino.h" //for boolean byte etc.
-#endif
 
-enum MSG{NA,START,ALARM,WARNING};
+enum MSG{ MSG_NA, MSG_START, MSG_ALARM, MSG_WARNING};
 
 class SMTP
 {
 //variables
 public:
 	static int nEmailStage;
-        
+	static MSG nMsgToSend;
+
 protected:
 private:
 
 #ifdef SENDEMAILS
-	static EthernetClient client;
 	static unsigned long mTimeout;
 	static boolean bWaitForResponse;
 	static IPAddress mSMTPServerIP;
-	static MSG nMsgToSend;
 	static unsigned long mStartDelay;
 #endif
 
 //functions
 public:
-	static void Init();
 	static void QueueEmail(MSG msgToSend);
-	static void SendEmailProcess();
+	static void StartEmailMonitor();
 	static boolean WaitForReplyLine();
         
 protected:

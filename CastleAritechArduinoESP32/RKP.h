@@ -9,8 +9,8 @@
 
 #include "Arduino.h"
 
-#define maxkeybufsize 6
-
+#define maxkeybufsize 8
+#define DISP_BUF_LEN 16+1+2		//16 characters - space - AW (will be followed by a Terminator 0)
 
 class FIFO
 {
@@ -30,19 +30,15 @@ class RKPClass
 {
  private:
 		static FIFO fifo;
-		//]static int _nLen;
-		//]static byte _r[4];
+
     bool static loop_PanelMon();
     
     static void SerialInit();
-    //static int SerialRead(byte* rx);
-    //static void SerialWrite(byte* buf, int len);
+ 
     
-    
-	public:
+public:
     void static Poll();
 
-    void static SendDisplayToWebClient();
     
     //TODO: move private
 		void static SendItems();
@@ -53,8 +49,8 @@ class RKPClass
 		static void Init();
 		static void SendToPanel(byte* r, int nLen);  //send a message to the panel
 		static void SendToPanelEx(byte* r, int len);
-		static void SendToPanel( bool bAck );
-		static byte dispBuffer[];
+		static void SendToPanel(bool bAck );
+		static char dispBuffer[];
 
 		static bool DecodeScreen( byte* msgbuf, int msgbufLen ); //Renders the screen from compressed bytes to Text
                 
