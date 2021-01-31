@@ -20,13 +20,8 @@
 
 
 #include "LOG.h"
-#ifdef VM
-  #include "libs\WiFi\WiFi.h"
-  #include "libs\Preferences\Preferences.h"
-#else
-  #include <WiFi.h>
-  #include <Preferences.h>
-#endif
+#include <WiFi.h>
+#include <Preferences.h>
 
 #include "WebSocket.h"
 #include "RKP.h"  //for PushKey
@@ -36,40 +31,22 @@ int WebSocket::nConnectState = WIFI_DOWN; //0 = no wifi  1= wificonnecting 2=wif
 char WebSocket::dispBufferLast[DISP_BUF_LEN + 1] = "RKP Unitialised";
 
 #ifdef WEBSERVER
-#ifdef VM
-  #include "libs\WiFi\WiFi.h"
-  #include "libs\ESPmDNS\ESPmDNS.h"
-  #include "libs\HttpsServer\HTTPRequest.hpp"
-  #include "libs\HttpsServer\HTTPResponse.hpp"
-  #include "libs\HttpsServer\WebsocketHandler.hpp"
-  #include "libs\HttpsServer\WebsocketNode.hpp"
-#else
-  #include <WiFi.h>
-  #include <ESPmDNS.h>
-  #include <HTTPRequest.hpp>
-  #include <HTTPResponse.hpp>
-  #include <WebsocketHandler.hpp>
-  #include <WebsocketNode.hpp>
-#endif
+#include <WiFi.h>
+//#include <ESPmDNS.h>
+#include <HTTPRequest.hpp>
+#include <HTTPResponse.hpp>
+#include <WebsocketHandler.hpp>
+#include <WebsocketNode.hpp>
 
 #ifdef HTTPS
-  #ifdef VM
-    #include "libs\HttpsServer\HTTPSServer.hpp"
-    #include "libs\HttpsServer\SSLCert.hpp"
-  #else
-    #include <HTTPSServer.hpp>
-    #include <SSLCert.hpp>
-  #endif
+	#include <HTTPSServer.hpp>
+	#include <SSLCert.hpp>
   
-  httpsserver::SSLCert* cert; //our server certificate
-  httpsserver::HTTPSServer* secureServer; //the server
+	httpsserver::SSLCert* cert; //our server certificate
+	httpsserver::HTTPSServer* secureServer; //the server
 #else
-  #ifdef VM
-    #include "libs\HttpsServer\HTTPServer.hpp"
-  #else
     #include <HTTPServer.hpp>
-  #endif
-  httpsserver::HTTPServer* secureServer; //the server
+	httpsserver::HTTPServer* secureServer; //the server
 #endif
 
 extern Preferences prefs;
