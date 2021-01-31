@@ -19,18 +19,17 @@
 #include <WiFiClientSecure.h>
 
 int SMTP::nEmailStage = 0;
+MSG SMTP::nMsgToSend = MSG_NA;
+
 
 #ifndef SENDEMAILS
 
 // protected constructor
 SMTP::SMTP(){}
-boolean SMTP::WaitForReplyLine(){}
-void SMTP::QueueEmail(MSG a){}
-void SMTP::Init(){}
-void SMTP::SendEmailProcess(){}
+void SMTP::QueueEmail(MSG msgToSend){}
+void SMTP::StartEmailMonitor(){}
 
 #else
-MSG SMTP::nMsgToSend = MSG_NA;
 
 SMTP::SMTP(){}
 void SMTP::QueueEmail(MSG msgToSend)
@@ -42,8 +41,6 @@ void SMTP::QueueEmail(MSG msgToSend)
 
 String _error="";
 String _serverResponse="";
-
-
 
 void a3_to_a4(unsigned char* a4, unsigned char* a3) {
     a4[0] = (a3[0] & 0xfc) >> 2;

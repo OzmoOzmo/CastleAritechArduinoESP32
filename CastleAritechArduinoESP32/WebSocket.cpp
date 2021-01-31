@@ -29,6 +29,8 @@
 
 int WebSocket::nConnectState = WIFI_DOWN; //0 = no wifi  1= wificonnecting 2=wifi+sockets ok
 char WebSocket::dispBufferLast[DISP_BUF_LEN + 1] = "RKP Unitialised";
+String WebSocket::sIPAddr = "";
+String WebSocket::escapedMac = "";
 
 #ifdef WEBSERVER
 #include <WiFi.h>
@@ -37,6 +39,9 @@ char WebSocket::dispBufferLast[DISP_BUF_LEN + 1] = "RKP Unitialised";
 #include <HTTPResponse.hpp>
 #include <WebsocketHandler.hpp>
 #include <WebsocketNode.hpp>
+
+#include "Alexa.h"
+
 
 #ifdef HTTPS
 	#include <HTTPSServer.hpp>
@@ -47,6 +52,10 @@ char WebSocket::dispBufferLast[DISP_BUF_LEN + 1] = "RKP Unitialised";
 #else
     #include <HTTPServer.hpp>
 	httpsserver::HTTPServer* secureServer; //the server
+#endif
+
+#ifdef ALEXA
+	#include "Alexa.h"
 #endif
 
 extern Preferences prefs;
@@ -99,7 +108,6 @@ public:
 };
 // Max clients to be connected to the chat
 WebSockHandler* activeClients[MAX_CLIENTS];
-
 
 httpsserver::WebsocketHandler* WebSockHandler::create() {
 	//Send welcome message handler->send(dispBufferLast, SEND_TYPE_TEXT);
@@ -207,12 +215,22 @@ void WebSocket::ServerInit()
 	secureServer = new httpsserver::HTTPServer();
 	#endif
 
+	LogLn("===");
+	WebSocket::escapedMac = WiFi.macAddress(); //eg. "30:AE:A4:27:84:14";
+	LogLn("mac raw: " + WebSocket::escapedMac); //30:AE:A4:27:84:14
+	WebSocket::escapedMac.replace(":", "");
+	WebSocket::escapedMac.toLowerCase();
+	WebSocket::escapedMac[0] = DEVICEHUB_ID; //manual change to mac
+	LogLn ("Mac: " + WebSocket::escapedMac);
+	LogLn("===");
+
+		
 	httpsserver::ResourceNode* nodeRoot = new httpsserver::ResourceNode("/", "GET",
 		[](httpsserver::HTTPRequest* req, httpsserver::HTTPResponse* res)
 		{//root hander
-			String ip = req->getClientIP().toString();
+			String sClientIP = req->getClientIP().toString();
 			std::string sReq = req->getRequestString();
-			Log("[" + ip + "] GET root");
+			Log("[" + sClientIP + "] GET root");
 
 			//this is more memory efficient - writes, replacing % with the current rkp display
 			int i1 = htmlSite.indexOf('%');
@@ -252,10 +270,21 @@ void WebSocket::ServerInit()
 	);
 	secureServer->registerNode(nodeFavicon);
 	
-	
+	#ifdef ALEXA
+	void serveDescription(httpsserver::HTTPRequest * _req, httpsserver::HTTPResponse * res);
+	void handleAlexaApiCall(httpsserver::HTTPRequest * _req, httpsserver::HTTPResponse * res);
+
+	secureServer->registerNode(new httpsserver::ResourceNode("/description.xml", "GET", &serveDescription));
+	secureServer->setDefaultNode(new httpsserver::ResourceNode("", "", &handleAlexaApiCall));
+	#endif
+
+
+
 	// Add sock node like folder node
 	httpsserver::WebsocketNode* websockNode = new httpsserver::WebsocketNode("/sock", &WebSockHandler::create);
 	secureServer->registerNode(websockNode);
+
+	LogLn("All Done Init");
 }
 #endif
 
@@ -275,6 +304,9 @@ void WebSocket::EtherPoll()
 
 #ifdef WEBSERVER
 	secureServer->loop();//service webserver
+#endif
+#ifdef ALEXA
+	AlexaLoop();
 #endif
 }
 
@@ -401,7 +433,7 @@ void WebSocket::Verify_WiFi()
 	static int nErrorCount = 0;
 	if (nConnectState == WIFI_DOWN)
 	{
-		LogLn(F("Start Wifi"));
+		LogLn("Wifi Down - Start Wifi");
 		gWifiStat = "Cnt: " WIFI_SSID; FlagDisplayUpdate(); //ToScreen(0, "Connecting: " WIFI_SSID);
 		WebSocket::WebSocket_WiFi_Init();
 		nConnectState = WIFI_PENDING;
@@ -421,10 +453,23 @@ void WebSocket::Verify_WiFi()
 		}
 		else
 		{//just got good wifi - set up socket server & web server
+			nConnectState = WIFI_OK;
 			LogLn("WiFi connected.");
-			//LogScreen("IP:" + WiFi.localIP().toString() + ":" + IP_P);
-			//ToScreen(0, "IP:" + WiFi.localIP().toString() + ":" + IP_P);
-			gWifiStat = "IP:" + WiFi.localIP().toString() + ":" + IP_P; FlagDisplayUpdate();
+			WebSocket::sIPAddr = WiFi.localIP().toString();
+			gWifiStat = "IP:" + WebSocket::sIPAddr + ":" + IP_P; FlagDisplayUpdate();
+			
+			/*
+			escapedMac = WebSocket::sMac; //this takes a copy
+			LogLn("mac raw: " + escapedMac); //30:AE:A4:27:84:14
+			escapedMac.replace(":", "");
+			escapedMac.toLowerCase();
+
+			escapedMac[0] = DEVICEHUB_ID; //manual change to mac
+
+			Serial.println("Using Mac: " + escapedMac);*/
+
+
+
 #ifdef WEBSERVER
 			secureServer->start();
 			if (secureServer->isRunning())
@@ -432,7 +477,9 @@ void WebSocket::Verify_WiFi()
 			//start_mdns_service();
 #endif
 
-			nConnectState = WIFI_OK;
+#ifdef ALEXA
+			AlexaStart(secureServer);
+#endif
 			return;
 		}
 
