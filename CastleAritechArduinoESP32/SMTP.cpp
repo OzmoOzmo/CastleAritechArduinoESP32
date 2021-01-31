@@ -15,13 +15,8 @@
 #include "Config.h"
 #include "WebSocket.h" //for the base64 stuff
 
-#ifdef VM
-  #include "libs\WiFi\WiFi.h"
-  #include "libs\WiFiClientSecure\WiFiClientSecure.h"
-#else
-  #include <WiFi.h>
-  #include <WiFiClientSecure.h>
-#endif
+#include <WiFi.h>
+#include <WiFiClientSecure.h>
 
 int SMTP::nEmailStage = 0;
 

@@ -34,15 +34,24 @@
 
 //See Config.h for all the configuration you may need
 
+//required for Visual Micro - the ino file needs to include every header we will use in other .cpp files
+#include <WiFi.h>
+#include <Preferences.h>
+#include <Wire.h>
+#include <SSD1306Wire.h>
+#include <WiFiClientSecure.h>
+#include <HTTPRequest.hpp>
+#ifdef HTTPS
+#include <HTTPSServer.hpp>
+#include <SSLCert.hpp>
+#endif
+//end required for Visual Micro
+
+
 #include "Log.h"
 #include "RKP.h"
 #include "SMTP.h"
 #include "WebSocket.h"
-#ifdef VM
-  #include "libs\Preferences\Preferences.h" 
-#else
-  #include <Preferences.h>
-#endif
 
 Preferences prefs;
 

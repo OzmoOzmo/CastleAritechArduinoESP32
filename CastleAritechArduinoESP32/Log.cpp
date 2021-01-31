@@ -103,12 +103,7 @@ void Log_Init()
 
 
 #ifdef ENABLE_DISPLAY
-  #ifdef VM
-    #include "libs\oled-ssd1306\SSD1306Wire.h"
-  #else
-    #include <SSD1306Wire.h>
-  #endif
-
+#include <SSD1306Wire.h>
 #include "WebSocket.h" //for the panel display buffer
 
 SSD1306Wire display(0x3c, 5, 4);
