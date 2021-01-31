@@ -19,7 +19,8 @@ class WebSocket
 		void static StartWebServerMonitor();
 		void static ServerInit(); //initialise what can be before we have wifi
 
-
+		String static sIPAddr;
+		String static escapedMac;
 	    static int nConnectState; //0 = no wifi   1=waiting for wifi   2= wifi+sockets ok
 
 		static char dispBufferLast[]; //store of the display to send out

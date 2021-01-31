@@ -41,17 +41,19 @@
 #include <SSD1306Wire.h>
 #include <WiFiClientSecure.h>
 #include <HTTPRequest.hpp>
+#include <WiFiUdp.h>
+
 #ifdef HTTPS
 #include <HTTPSServer.hpp>
 #include <SSLCert.hpp>
 #endif
 //end required for Visual Micro
 
-
 #include "Log.h"
 #include "RKP.h"
 #include "SMTP.h"
 #include "WebSocket.h"
+
 
 Preferences prefs;
 
@@ -86,7 +88,7 @@ void setup()
     WebSocket::StartWebServerMonitor();
 
     //Flashing led on Pin 12 show us we are still working ok
-    LogLn(F("If LED not Blinking - Ensure Panel is Connected."));
+    LogLn("If LED not Blinking - Ensure Panel is Connected.");
     pinMode(ledFeedback, OUTPUT); digitalWrite(ledFeedback, LOW);
 
     //Terrible performance for RKP when in a thread - we will run on core0

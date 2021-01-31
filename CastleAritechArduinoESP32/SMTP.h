@@ -34,7 +34,6 @@ private:
 public:
 	static void QueueEmail(MSG msgToSend);
 	static void StartEmailMonitor();
-	static boolean WaitForReplyLine();
         
 protected:
 private:
