@@ -103,21 +103,21 @@ void Log_Init()
 
 
 #ifdef ENABLE_DISPLAY
-#include <SSD1306Wire.h>
+#include "oleddisplay.h"
 #include "WebSocket.h" //for the panel display buffer
 
-SSD1306Wire display(0x3c, 5, 4);
+OLEDDisplay display(0x3c, 18, 19);  // was SSD1306Wire. ADDRESS, SDA, SCL
 
 void LCD_Init()
 {
 	// Initialising the UI will init the display too.
 	display.init();
-	display.flipScreenVertically(); //if required
-	display.setFont(ArialMT_Plain_10);
-	display.setTextAlignment(TEXT_ALIGN_LEFT);
-	display.setFont(ArialMT_Plain_10);
+	//display.flipScreenVertically(); //if required
 
-	display.setLogBuffer(5, 30);
+	//display.setFont(ArialMT_Plain_10);
+	//display.setTextAlignment(TEXT_ALIGN_LEFT);
+	//display.setLogBuffer(5, 30);
+
 	LogLn("Start");
 }
 
@@ -134,8 +134,8 @@ void DisplayUpdateDo()
 	display.clear();
 	display.drawString(0, 0, "Wifi: " + String(gWifiStat));
 	display.drawString(0, 10, "Clients: " + String(gClients));
-	display.drawString(0, 20, "Status: " + (gPanelStat.length()==0? "Clear" : gPanelStat));
-	display.drawString(0, 30, WebSocket::dispBufferLast);
+	display.drawString(60, 10, "Status: " + (gPanelStat.length()==0? "Clear" : gPanelStat));
+	display.drawString(0, 20, WebSocket::dispBufferLast);
 	display.display();
 }
 
