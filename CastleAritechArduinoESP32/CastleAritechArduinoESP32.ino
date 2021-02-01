@@ -38,10 +38,10 @@
 #include <WiFi.h>
 #include <Preferences.h>
 #include <Wire.h>
-#include <SSD1306Wire.h>
 #include <WiFiClientSecure.h>
 #include <HTTPRequest.hpp>
 #include <WiFiUdp.h>
+#include "oleddisplay.h"
 
 #ifdef HTTPS
 #include <HTTPSServer.hpp>
