@@ -47,6 +47,11 @@
 #define SMTP_PASS "PASSWORD"
 #define EMAIL_ADDR "example@example.com"  //Email to send to
 
+//Alexa Config
+//a hex character 0..9 or a..f to force Alexa to see as new device hub - increase by 1 if alexa not discovering devices
+//to have alexa see the ESP32 as a completly new device
+#define DEVICEHUB_ID '8'
+//End Alexa integration
 
 
 
@@ -63,7 +68,7 @@
 //#define SHOW_KEYPAD_SCREEN //Shows all screens in debug log - normally comment out (DEBUG_LOG required)
 //#define VM //define this to use Visual Micro as the compiler (a faster compiler - but not free)
 //#define REPORT_STACK_SPACE //Shows stats on the running threads 
-
+//#define ALEXA //comment out to disable Alexa
 
 //#Serial Port pins - We leave Serial0 for programming and debug - this serial port connects to the Aritech Panel via the circuit
 //#define D1_R32  //uncomment this define to use the D1_R32 board
