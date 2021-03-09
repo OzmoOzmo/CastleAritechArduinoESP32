@@ -1,28 +1,34 @@
 CastleAritechArduinoRKP for ESP32
 =================================
 
-*Note: this is a work in progress - for a complete version see the CastleAritechArduinoRKP project*
-
-An Aritech Alarm compatible Remote Keypad that makes Alarm functions
+An Aritech Alarm compatible Remote Keypad that makes the Alarms functions and menus
 accessible via any desktop or modern mobile phone browser.
+
+Features a WIFI connection to your router, Built in Webserver to present the virtual keypad - websockets to provide two way connection from your phone. Sends Email when an alarm is triggered (gmail compatible). Also has a built in OLED screen.
+
+Tested on several Aritech Alarms - CD34, CD73, CD34 etc.
 
 ![animation demo](https://github.com/OzmoOzmo/CastleAritechArduinoESP32/blob/master/HowTo/ArduinoAritechInternetKeypadLoop.gif)
 
 Allows you to remote arm/disarm the panel as well as view logs etc.
 Also Emails you when an Alarm happens.
 
-Connection to the Panel requires either only a two or a four wire connection (your choice).
-
+Connection to the Alarm Panel requires connecting via the standard 4 wire Remote Keypad bus.
 
 To compile, place all files in a folder called CastleAritechArduinoESP32
 and open the "CastleAritechArduinoESP32.ino" in Arduino IDE.
 
-No libraries are required.
-
 The circuit required is as follows.
 
+It can be soldered up how you like - but here is a suggestion
+
+![Wiring Diagram](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/SolderedBoard.png)
+
+![Photo Soldered Up](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/SolderedBoard.jpg)
 
 ![schematic](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/Schematic.jpg)
 
 
-Dec 2017
+
+*Note: This is the latest code for an ESP32 - supporting Wifi, Chrome, most phones and Gmail - An Arduino UNO version using Ethernet is also available*
+March 2021
