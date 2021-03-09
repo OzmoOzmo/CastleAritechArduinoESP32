@@ -21,8 +21,8 @@
 
 #define RKP_ID 1  //This is the Keypad id of the Arduinio - recommended 1 or 2 (0 is first keypad)
 
-#define LED_Stat 12 // Pin 14 on some ESP32s Pin 12 on D1 R32 - this binks when packets are sent to panel
-#define ledFeedback 2 //Blink a Led on Pin 2 we can use to show ESP is running (Green Led)
+#define LED_Stat 25 // Pin 14 on some ESP32s Pin 12 on D1 R32 - this binks when packets are sent to panel
+#define ledFeedback 17 //Blink a Led on Pin 2 we can use to show ESP is running (Green Led)
 
 //Wifi Password (Required)
 #define WIFI_SSID "{WIFI NAME HERE}"
@@ -71,16 +71,9 @@
 //#define ALEXA //comment out to disable Alexa
 
 //#Serial Port pins - We leave Serial0 for programming and debug - this serial port connects to the Aritech Panel via the circuit
-//#define D1_R32  //uncomment this define to use the D1_R32 board
-#if D1_R32
 //These are the Pins to use for Serial Connection
-#define SERIAL1_RXPIN 17
+#define SERIAL1_RXPIN 27
 #define SERIAL1_TXPIN 16
-#else
-//Tested with "Wemos Lolin32" - These pins are more suited to the board layout
-#define SERIAL1_RXPIN 13
-#define SERIAL1_TXPIN 15
-#endif
 
 #define ECHO_TEST_RTS -1 // (18) //unused but required to be defined can be: UART_PIN_NO_CHANGE
 #define ECHO_TEST_CTS -1 // (19) //unused but required to be defined can be: UART_PIN_NO_CHANGE

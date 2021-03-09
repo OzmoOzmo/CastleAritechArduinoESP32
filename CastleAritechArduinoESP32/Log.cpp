@@ -103,57 +103,57 @@ void Log_Init()
 
 
 #ifdef ENABLE_DISPLAY
-#include "oleddisplay.h"
-#include "WebSocket.h" //for the panel display buffer
-
-OLEDDisplay display(0x3c, 18, 19);  // was SSD1306Wire. ADDRESS, SDA, SCL
-
-void LCD_Init()
-{
-	// Initialising the UI will init the display too.
-	display.init();
-	//display.flipScreenVertically(); //if required
-
-	//display.setFont(ArialMT_Plain_10);
-	//display.setTextAlignment(TEXT_ALIGN_LEFT);
-	//display.setLogBuffer(5, 30);
-
-	LogLn("Start");
-}
-
-//Send update to LCD only (not to WebSockets) 
-//send to Websockets only if rkp screen changes
-void FlagDisplayUpdate()
-{
-	bDisplayToSend = true;
-}
-
-
-void DisplayUpdateDo()
-{
-	display.clear();
-	display.drawString(0, 0, "Wifi: " + String(gWifiStat));
-	display.drawString(0, 10, "Clients: " + String(gClients));
-	display.drawString(60, 10, "Status: " + (gPanelStat.length()==0? "Clear" : gPanelStat));
-	display.drawString(0, 20, WebSocket::dispBufferLast);
-	display.display();
-}
+  #include "oleddisplay.h"
+  #include "WebSocket.h" //for the panel display buffer
+  
+  OLEDDisplay display(0x3c, 18, 19);  // was SSD1306Wire. ADDRESS, SDA, SCL
+  
+  void LCD_Init()
+  {
+  	// Initialising the UI will init the display too.
+  	display.init();
+  	//display.flipScreenVertically(); //if required
+  
+  	//display.setFont(ArialMT_Plain_10);
+  	//display.setTextAlignment(TEXT_ALIGN_LEFT);
+  	//display.setLogBuffer(5, 30);
+  
+  	LogLn("Start");
+  }
+  
+  //Send update to LCD only (not to WebSockets) 
+  //send to Websockets only if rkp screen changes
+  void FlagDisplayUpdate()
+  {
+  	bDisplayToSend = true;
+  }
+  
+  
+  void DisplayUpdateDo()
+  {
+  	display.clear();
+  	display.drawString(0, 0, "Wifi: " + String(gWifiStat));
+  	display.drawString(0, 10, "Clients: " + String(gClients));
+  	display.drawString(60, 10, "Status: " + (gPanelStat.length()==0? "Clear" : gPanelStat));
+  	display.drawString(0, 20, WebSocket::dispBufferLast);
+  	display.display();
+  }
 
 #else
 
-//this code for esp32s that dont have the built in lcd screen
-void LCD_Init()
-{
-	LogLn("LCDInit Disabled");
-}
-
-void FlagDisplayUpdate()
-{
-}
-
-void DisplayUpdateDo()
-{
-}
+  //this code for esp32s that dont have the built in lcd screen
+  void LCD_Init()
+  {
+  	LogLn("LCDInit Disabled");
+  }
+  
+  void FlagDisplayUpdate()
+  {
+  }
+  
+  void DisplayUpdateDo()
+  {
+  }
 
 #endif
 
@@ -170,4 +170,3 @@ String gWifiStat = "Off";
 String gPanelStat = "";
 bool bDisplayToSend = false;
 bool bWebSocketToSend = false;
-
