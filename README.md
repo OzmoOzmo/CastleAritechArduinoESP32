@@ -1,6 +1,8 @@
 CastleAritechArduinoRKP for ESP32
 =================================
 
+Any questions I can be found via: https://www.boards.ie/vbulletin/showthread.php?t=2057113381
+
 An Aritech Alarm compatible Remote Keypad that makes the Alarms functions and menus
 accessible via any desktop or modern mobile phone browser.
 
@@ -21,7 +23,8 @@ and open the "CastleAritechArduinoESP32.ino" in Arduino IDE.
 The circuit required is as follows.
 
 It can be soldered up to yuor requirments and parts available - but here is a suggestion using an Adafruit Proto Shield mounted on an ESP D1 R32 board.
-Both available online from about $5 each.
+Both available online from aliexpress and other sources from about $5 each.
+Note: you may notice there is an 10uF capacitor in the soldered version - this is recommended to fix an issue with the ESP D1 R32 boards and make programming via Arduino IDE more reliable.
 
 ![Wiring Diagram](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/SolderedBoard.png)
 
