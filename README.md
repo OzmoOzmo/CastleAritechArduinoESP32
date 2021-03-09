@@ -20,7 +20,8 @@ and open the "CastleAritechArduinoESP32.ino" in Arduino IDE.
 
 The circuit required is as follows.
 
-It can be soldered up how you like - but here is a suggestion
+It can be soldered up to yuor requirments and parts available - but here is a suggestion using an Adafruit Proto Shield mounted on an ESP D1 R32 board.
+Both available online from about $5 each.
 
 ![Wiring Diagram](https://raw.githubusercontent.com/OzmoOzmo/CastleAritechArduinoESP32/master/HowTo/SolderedBoard.png)
 
