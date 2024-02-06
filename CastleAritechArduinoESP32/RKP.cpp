@@ -36,6 +36,11 @@
 
 #define ixMaxPanel 40	//40 bytes enough for a panel message buffer
 
+//these are constants that were renamed in ESP32 libraries - tested up to 2.0.14 of esp32 sdk
+#ifndef UART_RXFIFO_FULL_INT_ENA_M
+#include "soc/uart_reg.h"
+#endif
+
 const char PROGMEM allmonths[] = { "JANFEBMARAPRMAYJUNJULAUGSEPOCTNOVDEC" };
 const char PROGMEM alldays[] = { "SUNMONTUEWEDTHUFRISAT" };
 
